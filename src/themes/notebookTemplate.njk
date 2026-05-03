@@ -14,6 +14,8 @@ lastReadDate: {{metaData.lastReadDate}}
 > - 出版社： {{metaData.publisher}}
 > - PC地址：{{metaData.pcUrl}}
 
+{% set seen = {urls: []} %}
+{% for chapter in chapterHighlights %}{% for h in chapter.highlights %}{% if h.pencilNote %}{% set _ = seen.urls.push(h.pencilNote.imageUrl) %}{% endif %}{% endfor %}{% endfor %}
 {% if chapterHighlights and chapterHighlights.length > 0 %}# 高亮划线
 {% for chapter in chapterHighlights %}
 {% if chapter.level == 1 %}## {{chapter.chapterTitle}}{% elif chapter.level == 2 %}### {{chapter.chapterTitle}}{% elif chapter.level == 3 %}#### {{chapter.chapterTitle}}{% endif %}
@@ -39,7 +41,7 @@ lastReadDate: {{metaData.lastReadDate}}
 ### 划线评论
 > 📌 {{review.abstract |trim }}  ^{{review.reviewId}}
     - 💭 {{review.content}}
-    - ⏱ {{review.createTime}}{% if review.pencilNote %}{% if review.pencilNote.localPath %}
+    - ⏱ {{review.createTime}}{% if review.pencilNote and review.pencilNote.imageUrl not in seen.urls %}{% if review.pencilNote.localPath %}
     - ✏️ ![[{{review.pencilNote.localPath}}|400]]{% else %}
     - ✏️ ![pencil note]({{review.pencilNote.imageUrl}}){% endif %}{% endif %}
 {% endfor %} {% endif %} {% endif %} {% endfor %}{% endif %}

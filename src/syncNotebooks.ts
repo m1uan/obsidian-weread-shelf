@@ -315,20 +315,59 @@ export default class SyncNotebooks {
 		}
 
 		// Iteration 2: optionally append shelf-only books (no highlights/notes)
+		// Iteration 3 (v1.9.0): only fetch metadata for *new* shelf books — skip
+		// getBook for books we already have a local file for (build a minimal
+		// Metadata from frontmatter instead). Subsequent syncs go from ~5 min
+		// to a few seconds for an unchanged shelf.
 		const syncFullShelf = get(settingsStore).syncFullShelf;
 		if (syncFullShelf && shelfState) {
 			const notebookBookIds = new Set(metaDataArr.map((m) => m.bookId));
-			const shelfOnlyIds: string[] = [];
-			for (const [bookId] of shelfState.bookIdToArchive) {
-				if (!notebookBookIds.has(bookId)) {
-					shelfOnlyIds.push(bookId);
+			const localFiles = await this.fileManager.getNotebookFiles();
+			const localFileMap = new Map<string, AnnotationFile>();
+			for (const f of localFiles) {
+				if (f.bookId) localFileMap.set(f.bookId, f);
+			}
+
+			const idsToFetch: string[] = [];
+			const cachedShelfOnly: Metadata[] = [];
+
+			for (const [bookId, arch] of shelfState.bookIdToArchive) {
+				if (notebookBookIds.has(bookId)) continue;
+				const localFile = localFileMap.get(bookId);
+				if (localFile) {
+					// Reconstruct minimal Metadata from cached frontmatter —
+					// skips the expensive getBook API call. Bookshelf info
+					// gets the *current* archive (may differ from what's in
+					// the file, allowing relocate to pick up moves).
+					cachedShelfOnly.push({
+						bookId,
+						title: localFile.title || bookId,
+						author: localFile.author || '',
+						url: '',
+						cover: localFile.cover || '',
+						publishTime: '',
+						noteCount: 0,
+						reviewCount: 0,
+						bookType: 0,
+						lastReadDate: '',
+						pcUrl: `https://weread.qq.com/web/reader/${bookId}`,
+						bookshelf: arch.name,
+						bookshelfId: arch.archiveId
+					});
+				} else {
+					idsToFetch.push(bookId);
 				}
 			}
+
+			metaDataArr.push(...cachedShelfOnly);
 			console.log(
-				`[weread plugin] full shelf: ${shelfOnlyIds.length} books without highlights to fetch`
+				`[weread plugin] full shelf: ${cachedShelfOnly.length} cached + ${idsToFetch.length} new to fetch`
 			);
-			const shelfOnlyMetas = await this.fetchShelfOnlyMetadata(shelfOnlyIds, shelfState);
-			metaDataArr.push(...shelfOnlyMetas);
+
+			if (idsToFetch.length > 0) {
+				const shelfOnlyMetas = await this.fetchShelfOnlyMetadata(idsToFetch, shelfState);
+				metaDataArr.push(...shelfOnlyMetas);
+			}
 			console.log(`[weread plugin] full shelf: combined ${metaDataArr.length} total books`);
 		}
 
