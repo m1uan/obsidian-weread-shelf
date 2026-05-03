@@ -194,7 +194,11 @@ export default class SyncNotebooks {
 
 		// Download any pencilNote (handwritten) images so templates can
 		// reference them via wikilinks. Cheap if already cached.
-		if (get(settingsStore).syncPencilNotes) {
+		// Skip download entirely if user chose to let an external plugin
+		// (e.g. Local Images Plus) handle image downloads — in that case
+		// the template falls back to ![](imageUrl) external markdown.
+		const settings = get(settingsStore);
+		if (settings.syncPencilNotes && !settings.pencilNoteEmbedExternal) {
 			await this.downloadPencilNotes(metaData.bookId, highlights, reviews);
 		}
 

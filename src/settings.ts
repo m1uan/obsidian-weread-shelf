@@ -79,6 +79,7 @@ export interface WereadPluginSettings {
 	syncFullShelf: boolean;
 	autoRelocateOnBookshelfChange: boolean;
 	syncPencilNotes: boolean;
+	pencilNoteEmbedExternal: boolean;
 	readingOpenMode: ReadingOpenMode;
 	trimBlocks: boolean;
 	cookieCloudInfo: {
@@ -131,6 +132,7 @@ const DEFAULT_SETTINGS: WereadPluginSettings = {
 	syncFullShelf: false,
 	autoRelocateOnBookshelfChange: true,
 	syncPencilNotes: true,
+	pencilNoteEmbedExternal: false,
 	readingOpenMode: 'TAB',
 	trimBlocks: false,
 	cookieCloudInfo: {
@@ -536,6 +538,13 @@ const createSettingsStore = () => {
 		});
 	};
 
+	const setPencilNoteEmbedExternal = (pencilNoteEmbedExternal: boolean) => {
+		store.update((state) => {
+			state.pencilNoteEmbedExternal = pencilNoteEmbedExternal;
+			return state;
+		});
+	};
+
 	const setReadingOpenMode = (readingOpenMode: ReadingOpenMode) => {
 		store.update((state) => {
 			state.readingOpenMode = readingOpenMode;
@@ -749,6 +758,7 @@ const createSettingsStore = () => {
 			setSyncFullShelf,
 			setAutoRelocateOnBookshelfChange,
 			setSyncPencilNotes,
+			setPencilNoteEmbedExternal,
 			setReadingOpenMode,
 			setCookieCloudInfo,
 			setTrimBlocks,

@@ -501,14 +501,28 @@ export class WereadSettingsTab extends PluginSettingTab {
 	private syncPencilNotesToggle(): void {
 		new Setting(this.containerEl)
 			.setName('同步手写笔记（铅笔笔记）')
-			.setDesc(
-				'开启后会下载微信读书里你画的手写笔记 PNG 图，存到 vault 的 _attachments/weread/ 目录，并在笔记中插入 ![[…]] 引用。图片是公开 CDN，下载不需要额外认证。'
-			)
+			.setDesc('开启后会读取微信读书里你画的手写笔记。图片是公开 CDN，下载不需要额外认证。')
 			.addToggle((toggle) => {
 				return toggle.setValue(get(settingsStore).syncPencilNotes).onChange((value) => {
 					settingsStore.actions.setSyncPencilNotes(value);
 					this.display();
 				});
+			});
+	}
+
+	private pencilNoteEmbedExternalToggle(): void {
+		new Setting(this.containerEl)
+			.setName('手写笔记仅插入外链（让 Local Images Plus 等插件下载）')
+			.setDesc(
+				'关闭（默认）：插件直接下载到 _attachments/weread/，markdown 用 ![[...]] 引用。重复同步快、稳定。\n开启：仅插入 ![](https://...) 外链，由你装的 Local Images Plus 等图床插件接管下载。文件夹位置跟随 LIP 配置。注意：每次同步会重写 markdown，LIP 可能会重复处理。'
+			)
+			.addToggle((toggle) => {
+				return toggle
+					.setValue(get(settingsStore).pencilNoteEmbedExternal)
+					.onChange((value) => {
+						settingsStore.actions.setPencilNoteEmbedExternal(value);
+						this.display();
+					});
 			});
 	}
 
@@ -777,6 +791,7 @@ export class WereadSettingsTab extends PluginSettingTab {
 		this.saveReadingInfoToggle();
 		this.syncFullShelfToggle();
 		this.syncPencilNotesToggle();
+		this.pencilNoteEmbedExternalToggle();
 		this.autoRelocateOnBookshelfChangeToggle();
 		this.showEmptyChapterTitleToggle();
 
