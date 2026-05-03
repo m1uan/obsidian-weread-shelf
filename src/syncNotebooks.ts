@@ -290,20 +290,35 @@ export default class SyncNotebooks {
 		shelfState: ShelfState
 	): Promise<Metadata[]> {
 		const CONCURRENCY = 4;
+		const REQUEST_TIMEOUT_MS = 20_000;
+		const INTER_BATCH_DELAY_MS = 80;
 		const results: Metadata[] = [];
+		const failed: string[] = [];
 		const total = bookIds.length;
 		const progressNotice = new Notice(
 			`书架元数据抓取中: 0/${total}（仅首次开启「同步全部书架」时较慢）`,
 			0
 		);
 
+		const withTimeout = <T>(p: Promise<T>, ms: number): Promise<T | null> =>
+			Promise.race<T | null>([
+				p,
+				new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))
+			]);
+
 		for (let i = 0; i < bookIds.length; i += CONCURRENCY) {
 			const chunk = bookIds.slice(i, i + CONCURRENCY);
 			const chunkResults = await Promise.all(
 				chunk.map(async (bookId) => {
 					try {
-						const detail = await this.apiManager.getBook(bookId);
-						if (!detail || !detail.title) return null;
+						const detail = await withTimeout(
+							this.apiManager.getBook(bookId),
+							REQUEST_TIMEOUT_MS
+						);
+						if (!detail || !detail.title) {
+							failed.push(bookId);
+							return null;
+						}
 						const arch = shelfState.bookIdToArchive.get(bookId);
 						const cover = detail.cover ? detail.cover.replace('/s_', '/t7_') : '';
 						const author = (detail.author || '').replace(/\[(.*?)\]/g, '【$1】');
@@ -331,6 +346,7 @@ export default class SyncNotebooks {
 						return meta;
 					} catch (e) {
 						console.warn(`[weread plugin] fetch shelf book ${bookId} failed:`, e);
+						failed.push(bookId);
 						return null;
 					}
 				})
@@ -339,10 +355,23 @@ export default class SyncNotebooks {
 				if (m) results.push(m);
 			}
 			progressNotice.setMessage(
-				`书架元数据抓取中: ${Math.min(i + CONCURRENCY, total)}/${total}`
+				`书架元数据抓取中: ${Math.min(i + CONCURRENCY, total)}/${total}` +
+					(failed.length > 0 ? `（失败 ${failed.length}）` : '')
 			);
+			if (i + CONCURRENCY < bookIds.length && INTER_BATCH_DELAY_MS > 0) {
+				await new Promise((r) => setTimeout(r, INTER_BATCH_DELAY_MS));
+			}
 		}
 		progressNotice.hide();
+		if (failed.length > 0) {
+			console.warn(
+				`[weread plugin] ${failed.length} shelf books failed to fetch, skipping. ` +
+					`First few: ${failed.slice(0, 5).join(', ')}`
+			);
+			new Notice(
+				`书架元数据抓取完成：成功 ${results.length}，失败 ${failed.length}（已跳过）`
+			);
+		}
 		return results;
 	}
 
