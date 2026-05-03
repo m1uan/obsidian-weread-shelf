@@ -241,6 +241,49 @@ export default class FileManager {
 	}
 
 	/**
+	 * Save a pencilNote (handwritten note) PNG image to the vault. Path is
+	 * `<noteLocation>/_attachments/weread/<bookId>_<reviewId>.png` to keep
+	 * all weread images in one place, separate from notes themselves.
+	 *
+	 * Returns the relative vault path (suitable for ![[...]] wikilinks)
+	 * or undefined if save failed. Skips download if the file already
+	 * exists with size > 0.
+	 */
+	public async savePencilNoteImage(
+		bookId: string,
+		reviewId: string,
+		fetchBytes: () => Promise<ArrayBuffer | undefined>
+	): Promise<string | undefined> {
+		const noteLocation = get(settingsStore).noteLocation || '/';
+		const folder = `${noteLocation}/_attachments/weread`.replace(/\/+/g, '/');
+		const filename = `${bookId}_${reviewId}.png`;
+		const fullPath = `${folder}/${filename}`.replace(/\/+/g, '/');
+
+		// Skip if already cached
+		if (await this.vault.adapter.exists(fullPath)) {
+			const stat = await this.vault.adapter.stat(fullPath);
+			if (stat && stat.size > 0) {
+				return fullPath.replace(/^\//, '');
+			}
+		}
+
+		if (!(await this.vault.adapter.exists(folder))) {
+			await this.vault.createFolder(folder);
+		}
+
+		const bytes = await fetchBytes();
+		if (!bytes) return undefined;
+
+		try {
+			await this.vault.adapter.writeBinary(fullPath, bytes);
+			return fullPath.replace(/^\//, '');
+		} catch (e) {
+			console.warn('[weread plugin] save pencilNote image failed', fullPath, e);
+			return undefined;
+		}
+	}
+
+	/**
 	 * Move an existing weread-managed file to a new path (typically because
 	 * the user reorganized their bookshelf in WeRead). Creates the target
 	 * folder if needed. Logs and swallows errors — never throws.

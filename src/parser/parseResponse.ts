@@ -85,6 +85,7 @@ export const parseHighlights = (
 	return highlightData.updated.map((highlight) => {
 		const highlightRange = highlight.range;
 		let reviewContent;
+		let pencilNote;
 		if (reviewData.reviews) {
 			const review = reviewData.reviews
 				.map((review) => review.review)
@@ -92,6 +93,14 @@ export const parseHighlights = (
 				.first();
 			if (review) {
 				reviewContent = convertTags ? convertTagToBiLink(review.content) : review.content;
+				if (review.pencilNote) {
+					pencilNote = {
+						imageUrl: review.pencilNote.imageUrl,
+						imageWidth: review.pencilNote.imageWidth,
+						imageHeight: review.pencilNote.imageHeight,
+						updateTime: review.pencilNote.updateTime
+					};
+				}
 			}
 		}
 
@@ -111,7 +120,8 @@ export const parseHighlights = (
 			colorStyle: highlight.colorStyle,
 			chapterTitle: chapterInfo?.title || '未知章节',
 			markText: intentMarkText,
-			reviewContent: addIndentToParagraphs(reviewContent)
+			reviewContent: addIndentToParagraphs(reviewContent),
+			pencilNote
 		};
 	});
 };
@@ -311,6 +321,14 @@ export const parseReviews = (resp: BookReviewResponse): Review[] => {
 		const finalMdContent = convertTags ? convertTagToBiLink(content) : content;
 
 		const reviewId: string = review.reviewId;
+		const pencilNote = review.pencilNote
+			? {
+					imageUrl: review.pencilNote.imageUrl,
+					imageWidth: review.pencilNote.imageWidth,
+					imageHeight: review.pencilNote.imageHeight,
+					updateTime: review.pencilNote.updateTime
+			  }
+			: undefined;
 		return {
 			bookId: review.bookId,
 			created: created,
@@ -322,7 +340,8 @@ export const parseReviews = (resp: BookReviewResponse): Review[] => {
 			mdContent: finalMdContent,
 			range: review.range,
 			abstract: review.abstract,
-			type: review.type
+			type: review.type,
+			pencilNote
 		};
 	});
 };

@@ -19,9 +19,11 @@ lastReadDate: {{metaData.lastReadDate}}
 {% if chapter.level == 1 %}## {{chapter.chapterTitle}}{% elif chapter.level == 2 %}### {{chapter.chapterTitle}}{% elif chapter.level == 3 %}#### {{chapter.chapterTitle}}{% endif %}
 {% for highlight in chapter.highlights %}{% if highlight.reviewContent %}
 > 📌 {{ highlight.markText |trim }} ^{{highlight.bookmarkId}}
-- 💭 {{highlight.reviewContent}} - ⏱ {{highlight.createTime}} {% else %}
+- 💭 {{highlight.reviewContent}} - ⏱ {{highlight.createTime}}{% if highlight.pencilNote and highlight.pencilNote.localPath %}
+- ✏️ ![[{{highlight.pencilNote.localPath}}|400]]{% endif %} {% else %}
 > 📌 {{ highlight.markText |trim }}
-> ⏱ {{highlight.createTime}} ^{{highlight.bookmarkId}}{% endif %}
+> ⏱ {{highlight.createTime}} ^{{highlight.bookmarkId}}{% if highlight.pencilNote and highlight.pencilNote.localPath %}
+- ✏️ ![[{{highlight.pencilNote.localPath}}|400]]{% endif %}{% endif %}
 {% endfor %}{% endfor %}{% endif %}
 {% if bookReview.chapterReviews and bookReview.chapterReviews.length > 0 %}# 读书笔记
 {% for chapter in bookReview.chapterReviews %}{% if chapter.reviews or chapter.chapterReview %}
@@ -29,11 +31,13 @@ lastReadDate: {{metaData.lastReadDate}}
 {% if chapter.chapterReviews %}{% for chapterReview in chapter.chapterReviews %}
 ### 章节评论 No.{{loop.index}}
 - {{chapterReview.content}} ^{{chapterReview.reviewId}}
-    - ⏱ {{chapterReview.createTime}} {% endfor %}{% endif %}{% if chapter.reviews %}{% for review in chapter.reviews %}
+    - ⏱ {{chapterReview.createTime}}{% if chapterReview.pencilNote and chapterReview.pencilNote.localPath %}
+    - ✏️ ![[{{chapterReview.pencilNote.localPath}}|400]]{% endif %} {% endfor %}{% endif %}{% if chapter.reviews %}{% for review in chapter.reviews %}
 ### 划线评论
 > 📌 {{review.abstract |trim }}  ^{{review.reviewId}}
     - 💭 {{review.content}}
-    - ⏱ {{review.createTime}}
+    - ⏱ {{review.createTime}}{% if review.pencilNote and review.pencilNote.localPath %}
+    - ✏️ ![[{{review.pencilNote.localPath}}|400]]{% endif %}
 {% endfor %} {% endif %} {% endif %} {% endfor %}{% endif %}
 {% if bookReview.bookReviews and bookReview.bookReviews.length > 0 %}# 本书评论
 {% for bookReview in bookReview.bookReviews %}

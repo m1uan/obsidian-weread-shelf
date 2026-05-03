@@ -191,6 +191,13 @@ export default class SyncNotebooks {
 		const chapterResp = await this.apiManager.getChapters(metaData.bookId);
 		const highlights = parseHighlights(highlightResp, reviewResp);
 		const reviews = parseReviews(reviewResp);
+
+		// Download any pencilNote (handwritten) images so templates can
+		// reference them via wikilinks. Cheap if already cached.
+		if (get(settingsStore).syncPencilNotes) {
+			await this.downloadPencilNotes(metaData.bookId, highlights, reviews);
+		}
+
 		const chapters = parseChapterResp(chapterResp, highlightResp);
 		let chapterHighlightReview;
 		if (metaData.bookType === 3) {
@@ -207,6 +214,50 @@ export default class SyncNotebooks {
 			chapterHighlights: chapterHighlightReview,
 			bookReview: bookReview
 		};
+	}
+
+	/**
+	 * Iterate every highlight + review for a book and download any pencilNote
+	 * (handwritten) PNGs into the vault. Mutates the highlight/review objects
+	 * to set `pencilNote.localPath` so templates can render `![[...]]` links.
+	 */
+	private async downloadPencilNotes(
+		bookId: string,
+		highlights: import('./models').Highlight[],
+		reviews: import('./models').Review[]
+	): Promise<void> {
+		const targets: {
+			reviewId: string;
+			pencilNote: { imageUrl: string; localPath?: string };
+		}[] = [];
+		// Highlights' pencilNote (attached via matching range)
+		for (const h of highlights) {
+			if (h.pencilNote) {
+				// Find the matching review to get a stable reviewId for the filename
+				const matchingReview = reviews.find((r) => r.range === h.range && r.pencilNote);
+				const id = matchingReview?.reviewId || h.bookmarkId;
+				targets.push({ reviewId: id, pencilNote: h.pencilNote });
+			}
+		}
+		// Standalone reviews' pencilNote (chapter-level reviews etc.)
+		for (const r of reviews) {
+			if (r.pencilNote && !targets.some((t) => t.reviewId === r.reviewId)) {
+				targets.push({ reviewId: r.reviewId, pencilNote: r.pencilNote });
+			}
+		}
+		if (targets.length === 0) return;
+
+		console.log(
+			`[weread plugin] downloading ${targets.length} pencilNote images for ${bookId}`
+		);
+		for (const t of targets) {
+			const localPath = await this.fileManager.savePencilNoteImage(bookId, t.reviewId, () =>
+				this.apiManager.downloadImage(t.pencilNote.imageUrl)
+			);
+			if (localPath) {
+				t.pencilNote.localPath = localPath;
+			}
+		}
 	}
 
 	private async filterNoteMetas(force = false, metaDataArr: Metadata[]): Promise<Metadata[]> {

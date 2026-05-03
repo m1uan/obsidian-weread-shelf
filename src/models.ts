@@ -55,6 +55,14 @@ export interface HighlightResponse {
 	};
 }
 
+export interface PencilNote {
+	imageUrl: string;
+	imageWidth: number;
+	imageHeight: number;
+	drawingUrl?: string;
+	updateTime: number;
+}
+
 export interface BookReviewResponse {
 	synckey: number;
 	totalCount: number;
@@ -65,6 +73,7 @@ export interface BookReviewResponse {
 			atUserVids: any[];
 			bookId: string;
 			bookVersion: number;
+			pencilNote?: PencilNote;
 			refMpInfo: {
 				reviewId: string;
 				title: string;
@@ -396,6 +405,14 @@ export type Highlight = {
 	reviewContent?: string;
 	range: string;
 	refMpReviewId?: string;
+	// Handwritten note image attached to this highlight's review (if any)
+	pencilNote?: {
+		imageUrl: string;
+		imageWidth: number;
+		imageHeight: number;
+		updateTime: number;
+		localPath?: string;
+	};
 };
 
 export type BookReview = {
@@ -426,6 +443,14 @@ export type Review = {
 		title: string;
 		pic_url: string;
 		createTime: number;
+	};
+	pencilNote?: {
+		imageUrl: string;
+		imageWidth: number;
+		imageHeight: number;
+		updateTime: number;
+		// Set by FileManager after the image is downloaded into the vault
+		localPath?: string;
 	};
 };
 

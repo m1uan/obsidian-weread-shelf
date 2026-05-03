@@ -305,6 +305,35 @@ export default class ApiManager {
 	}
 
 	/**
+	 * Download a binary asset (e.g. a pencilNote PNG) from WeRead's CDN.
+	 * pencilNote images at review.weread.qq.com/* are publicly readable
+	 * with no auth required, but we still send the same headers we use
+	 * elsewhere for consistency. Returns the raw bytes or undefined on failure.
+	 */
+	async downloadImage(url: string): Promise<ArrayBuffer | undefined> {
+		try {
+			const req: RequestUrlParam = {
+				url,
+				method: 'GET',
+				headers: {
+					'User-Agent':
+						'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)',
+					Referer: 'https://weread.qq.com/'
+				}
+			};
+			const resp = await requestUrl(req);
+			if (resp.status !== 200) {
+				console.warn(`[weread plugin] download image ${url} status ${resp.status}`);
+				return undefined;
+			}
+			return resp.arrayBuffer;
+		} catch (e) {
+			console.error('[weread plugin] downloadImage failed', url, e);
+			return undefined;
+		}
+	}
+
+	/**
 	 * Fetch the user's full bookshelf (including books without highlights/notes)
 	 * by scraping /web/shelf HTML and extracting window.__INITIAL_STATE__.
 	 *

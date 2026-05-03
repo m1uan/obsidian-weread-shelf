@@ -498,6 +498,20 @@ export class WereadSettingsTab extends PluginSettingTab {
 				});
 			});
 	}
+	private syncPencilNotesToggle(): void {
+		new Setting(this.containerEl)
+			.setName('同步手写笔记（铅笔笔记）')
+			.setDesc(
+				'开启后会下载微信读书里你画的手写笔记 PNG 图，存到 vault 的 _attachments/weread/ 目录，并在笔记中插入 ![[…]] 引用。图片是公开 CDN，下载不需要额外认证。'
+			)
+			.addToggle((toggle) => {
+				return toggle.setValue(get(settingsStore).syncPencilNotes).onChange((value) => {
+					settingsStore.actions.setSyncPencilNotes(value);
+					this.display();
+				});
+			});
+	}
+
 	private autoRelocateOnBookshelfChangeToggle(): void {
 		new Setting(this.containerEl)
 			.setName('自动整理：分组变更时移动文件')
@@ -762,6 +776,7 @@ export class WereadSettingsTab extends PluginSettingTab {
 		this.convertTagToggle();
 		this.saveReadingInfoToggle();
 		this.syncFullShelfToggle();
+		this.syncPencilNotesToggle();
 		this.autoRelocateOnBookshelfChangeToggle();
 		this.showEmptyChapterTitleToggle();
 
