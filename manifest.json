@@ -1,7 +1,7 @@
 {
 	"id": "obsidian-weread-shelf",
 	"name": "Weread Shelf",
-	"version": "1.6.1",
+	"version": "1.7.0",
 	"minAppVersion": "0.12.0",
 	"description": "Sync WeRead full bookshelf (including books without highlights), organize by user's custom bookshelf groups, auto-relocate on group change. Fork of obsidian-weread-plugin.",
 	"author": "m1uan (forked from hankzhao)",

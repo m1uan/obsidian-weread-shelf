@@ -60,19 +60,30 @@ export const buildFrontMatter = (
 
 		const readInfo = noteBook.metaData.readInfo;
 		if (readInfo) {
-			// Use finishedDate to determine reading status since markedStatus is no longer available in new API
-			// If finishedDate exists and is valid (> 0), status is "读完", otherwise "在读"
-			if (readInfo.finishedDate && readInfo.finishedDate > 0) {
+			// Determine status from the timestamps: finishedDate > 0 means
+			// finished; readingBookDate > 0 OR readingTime > 0 means started.
+			// Otherwise the book is on the shelf but hasn't been read yet.
+			const isFinished = readInfo.finishedDate && readInfo.finishedDate > 0;
+			const isStarted =
+				(readInfo.readingBookDate && readInfo.readingBookDate > 0) ||
+				(readInfo.readingTime && readInfo.readingTime > 0);
+			if (isFinished) {
 				frontMatter.readingStatus = ReadingStatus['读完'];
-			} else {
+			} else if (isStarted) {
 				frontMatter.readingStatus = ReadingStatus['在读'];
+			} else {
+				frontMatter.readingStatus = ReadingStatus['未标记'];
 			}
 			frontMatter.progress =
 				readInfo.readingProgress === undefined ? '-1' : readInfo.readingProgress + '%';
 			frontMatter.totalReadDay = readInfo.totalReadDay;
 			frontMatter.readingTime = formatTimeDuration(readInfo.readingTime);
-			frontMatter.readingDate = formatTimestampToDate(readInfo.readingBookDate);
-			if (readInfo.finishedDate) {
+			// Only emit dates that are real (> 0). Otherwise we'd write a
+			// confusing "1970-01-01" placeholder for never-opened books.
+			if (readInfo.readingBookDate && readInfo.readingBookDate > 0) {
+				frontMatter.readingDate = formatTimestampToDate(readInfo.readingBookDate);
+			}
+			if (readInfo.finishedDate && readInfo.finishedDate > 0) {
 				frontMatter.finishedDate = formatTimestampToDate(readInfo.finishedDate);
 			}
 		}

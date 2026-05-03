@@ -11,7 +11,7 @@ export const WEREAD_BOOKSHELF_VIEW_ID = 'weread-bookshelf-view';
 
 type CategoryFilter = 'all' | 'book' | 'article';
 type SyncStatusFilter = 'all' | 'remoteOnly' | 'synced' | 'localOnly';
-type ReadingStatusFilter = 'all' | 'reading' | 'finished';
+type ReadingStatusFilter = 'all' | 'reading' | 'finished' | 'unread';
 type BookshelfSort = 'recent' | 'title';
 const UNKNOWN_YEAR_LABEL = '未知年份';
 
@@ -136,9 +136,10 @@ export class WereadBookshelfView extends ItemView {
 			attr: { 'aria-label': '筛选阅读状态' }
 		});
 		[
-			['all', '在读+已读'],
+			['all', '全部状态'],
 			['reading', '在读'],
-			['finished', '已读']
+			['finished', '已读'],
+			['unread', '未读']
 		].forEach(([value, label]) => {
 			const option = readingStatusSelect.createEl('option', { value, text: label });
 			option.selected = value === this.readingStatusFilter;
@@ -417,10 +418,12 @@ export class WereadBookshelfView extends ItemView {
 		labels.push(book.isArticle ? '公众号' : '图书');
 
 		// 添加阅读状态标签
-		if (book.hasLocalFile && book.localFile?.finishedDate) {
+		if (this.isBookFinished(book)) {
 			labels.push('已读');
-		} else if (book.hasLocalFile) {
+		} else if (this.isBookReading(book)) {
 			labels.push('在读');
+		} else if (this.isBookUnread(book)) {
+			labels.push('未读');
 		}
 
 		if (book.syncFilter && !book.syncFilter.includedByCurrentSettings) {
@@ -467,11 +470,13 @@ export class WereadBookshelfView extends ItemView {
 				}
 
 				if (this.readingStatusFilter !== 'all') {
-					const isFinished = this.isBookFinished(book);
-					if (this.readingStatusFilter === 'finished' && !isFinished) {
+					if (this.readingStatusFilter === 'finished' && !this.isBookFinished(book)) {
 						return false;
 					}
-					if (this.readingStatusFilter === 'reading' && isFinished) {
+					if (this.readingStatusFilter === 'reading' && !this.isBookReading(book)) {
+						return false;
+					}
+					if (this.readingStatusFilter === 'unread' && !this.isBookUnread(book)) {
 						return false;
 					}
 				}
@@ -552,8 +557,36 @@ export class WereadBookshelfView extends ItemView {
 	}
 
 	private isBookFinished(book: BookshelfBook): boolean {
-		// 检查本地文件的 finishedDate 来判断是否已读
-		return book.hasLocalFile && book.localFile?.finishedDate !== undefined;
+		// 已读：本地文件含 finishedDate，或远程进度的 finishedDate > 0
+		if (book.hasLocalFile && book.localFile?.finishedDate) {
+			return true;
+		}
+		const progress = book.progress;
+		if (progress?.state === 'loaded' && progress.finishedDate && progress.finishedDate > 0) {
+			return true;
+		}
+		return false;
+	}
+
+	private isBookReading(book: BookshelfBook): boolean {
+		// 在读：已开始（有 readingDate 或 readingTime > 0）但未读完
+		if (this.isBookFinished(book)) return false;
+		if (book.hasLocalFile && book.localFile?.readingDate) return true;
+		const progress = book.progress;
+		if (progress?.state === 'loaded') {
+			if (progress.readingDate && progress.readingDate > 0) return true;
+			if (progress.readingTime && progress.readingTime > 0) return true;
+		}
+		return false;
+	}
+
+	private isBookUnread(book: BookshelfBook): boolean {
+		// 未读：在书架上但既未读完也未开始（无 readingDate / 无 readingTime / 无 finishedDate）
+		// 通常是 v1.6.0+ 通过「同步全部书架」拉下来的元数据 only 文件
+		if (this.isBookFinished(book)) return false;
+		if (this.isBookReading(book)) return false;
+		// 必须是远程存在的（避免把本地手动建的 weread-style 文件也算进来）
+		return book.remoteExists || book.hasLocalFile;
 	}
 
 	private isRemoteIncludedInCurrentSettings(book: BookshelfBook): boolean {
