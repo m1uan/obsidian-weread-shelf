@@ -16,8 +16,10 @@ import {
 	parseDailyNoteReferences,
 	parseReviews,
 	parseChapterResp,
-	parseArticleHighlightReview
+	parseArticleHighlightReview,
+	parseShelfState
 } from './parser/parseResponse';
+import type { ShelfState } from './models';
 import { settingsStore } from './settings';
 import { get } from 'svelte/store';
 import { Notice } from 'obsidian';
@@ -214,7 +216,49 @@ export default class SyncNotebooks {
 	private async getALlMetadata() {
 		const notebookResp = await this.apiManager.getNotebooksWithRetry();
 		const metaDataArr = notebookResp.map((noteBook) => parseMetadata(noteBook));
+
+		// Enrich each metadata with the user's bookshelf group (archive) info
+		const shelfState = await this.getShelfState();
+		if (shelfState) {
+			for (const meta of metaDataArr) {
+				const arch = shelfState.bookIdToArchive.get(meta.bookId);
+				if (arch) {
+					meta.bookshelf = arch.name;
+					meta.bookshelfId = arch.archiveId;
+				}
+			}
+			console.log(
+				`[weread plugin] shelf enriched: ${shelfState.totalBooks} total, ${
+					metaDataArr.filter((m) => m.bookshelf).length
+				}/${metaDataArr.length} notebook books matched`
+			);
+		}
 		return metaDataArr;
+	}
+
+	/**
+	 * Lazy-load the user's full shelf (1075 books with archive groups) for
+	 * enriching notebook metadata. Returns undefined if shelf scrape fails —
+	 * sync continues without bookshelf info in that case.
+	 */
+	private cachedShelfState: ShelfState | null | undefined = undefined;
+	private async getShelfState(): Promise<ShelfState | null> {
+		if (this.cachedShelfState !== undefined) {
+			return this.cachedShelfState;
+		}
+		try {
+			const rawShelf = await this.apiManager.getShelf();
+			if (!rawShelf) {
+				this.cachedShelfState = null;
+				return null;
+			}
+			this.cachedShelfState = parseShelfState(rawShelf);
+			return this.cachedShelfState;
+		} catch (e) {
+			console.error('[weread plugin] getShelfState failed', e);
+			this.cachedShelfState = null;
+			return null;
+		}
 	}
 
 	private async saveToJounal(journalDate: string, metaDataArr: Metadata[]) {

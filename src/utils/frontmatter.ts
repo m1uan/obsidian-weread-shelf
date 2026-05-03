@@ -12,6 +12,8 @@ type FrontMatterContent = {
 	reviewCount: number;
 	author?: string;
 	cover?: string;
+	bookshelf?: string;
+	bookshelfId?: string;
 	readingStatus?: string;
 	progress?: string;
 	readingTime?: string;
@@ -41,6 +43,14 @@ export const buildFrontMatter = (
 		reviewCount: noteBook.metaData.reviewCount,
 		noteCount: noteBook.metaData.noteCount
 	};
+
+	// Always include bookshelf info if available (cheap to compute, useful for filtering)
+	if (noteBook.metaData.bookshelf) {
+		frontMatter.bookshelf = noteBook.metaData.bookshelf;
+	}
+	if (noteBook.metaData.bookshelfId) {
+		frontMatter.bookshelfId = noteBook.metaData.bookshelfId;
+	}
 
 	const saveReadingInfoToggle = get(settingsStore).saveReadingInfoToggle;
 

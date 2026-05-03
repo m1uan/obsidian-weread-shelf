@@ -11,12 +11,43 @@ import type {
 	Metadata,
 	Notebook,
 	RefBlockDetail,
-	Review
+	Review,
+	ShelfArchive,
+	ShelfState
 } from 'src/models';
 import { NodeHtmlMarkdown } from 'node-html-markdown';
 import * as CryptoJS from 'crypto-js';
 import { settingsStore } from '../settings';
 import { get } from 'svelte/store';
+
+/**
+ * Parse the raw shelf object (from getShelf) into a ShelfState that includes:
+ *   - archives: list of user-defined groups with their bookIds
+ *   - bookIdToArchive: O(1) lookup from bookId → archive
+ *   - totalBooks: deduped count of books across all archives
+ */
+export const parseShelfState = (rawShelf: {
+	archive: { archiveId: number | string; name: string; books: { bookId: string }[] }[];
+}): ShelfState => {
+	const archives: ShelfArchive[] = rawShelf.archive.map((a) => ({
+		archiveId: String(a.archiveId),
+		name: a.name,
+		bookIds: (a.books || []).map((b) => b.bookId).filter(Boolean)
+	}));
+	const map = new Map<string, ShelfArchive>();
+	for (const arch of archives) {
+		for (const bid of arch.bookIds) {
+			if (!map.has(bid)) {
+				map.set(bid, arch);
+			}
+		}
+	}
+	return {
+		archives,
+		bookIdToArchive: map,
+		totalBooks: map.size
+	};
+};
 
 export const parseMetadata = (noteBook: any): Metadata => {
 	const book = noteBook['book'];

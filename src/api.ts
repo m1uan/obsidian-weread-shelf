@@ -304,6 +304,59 @@ export default class ApiManager {
 		}
 	}
 
+	/**
+	 * Fetch the user's full bookshelf (including books without highlights/notes)
+	 * by scraping /web/shelf HTML and extracting window.__INITIAL_STATE__.
+	 *
+	 * Why HTML scraping instead of a REST API:
+	 * - i.weread.qq.com/shelf/sync rejects web-domain cookies (-2012)
+	 * - weread.qq.com/web/shelf/sync also returns -2012
+	 * - The shelf page itself embeds full grouping data in JS and renders
+	 *   fine with the same cookies we already use for /api/user/notebook
+	 *
+	 * Returns state.shelf which contains:
+	 *   - archive: user-defined bookshelf groups (with books[].bookId)
+	 *   - rawBooks: detailed metadata for the first ~199 books
+	 *   - bookProgress: reading progress for many books
+	 */
+	async getShelf(): Promise<
+		| {
+				archive: {
+					archiveId: number | string;
+					name: string;
+					books: { bookId: string }[];
+				}[];
+				[key: string]: unknown;
+		  }
+		| undefined
+	> {
+		try {
+			const req: RequestUrlParam = {
+				url: `${this.baseUrl}/web/shelf`,
+				method: 'GET',
+				headers: this.getHeaders()
+			};
+			const resp = await requestUrl(req);
+			const html = resp.text;
+			const match = html.match(
+				/window\.__INITIAL_STATE__\s*=\s*(\{[\s\S]*?\});\s*\(function\(\)/
+			);
+			if (!match) {
+				console.error('[weread plugin] /web/shelf: __INITIAL_STATE__ not found');
+				return undefined;
+			}
+			const state = JSON.parse(match[1]);
+			if (!state.shelf || !Array.isArray(state.shelf.archive)) {
+				console.error('[weread plugin] /web/shelf: state.shelf.archive missing');
+				return undefined;
+			}
+			return state.shelf;
+		} catch (e) {
+			console.error('[weread plugin] getShelf error', e);
+			return undefined;
+		}
+	}
+
 	async getNotebookHighlights(bookId: string): Promise<HighlightResponse | undefined> {
 		try {
 			const req: RequestUrlParam = {

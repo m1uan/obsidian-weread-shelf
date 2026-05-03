@@ -271,6 +271,12 @@ export default class FileManager {
 			} else {
 				return metaData.author === '公众号' ? '公众号' : '未分类';
 			}
+		} else if (folderType == 'bookshelf') {
+			// User-defined bookshelf group from WeRead (e.g. 文学 / 心理疗愈 / 荣格)
+			if (metaData.bookshelf) {
+				return sanitizeTitle(metaData.bookshelf);
+			}
+			return metaData.author === '公众号' ? '公众号' : '_未分组';
 		}
 		return '';
 	}

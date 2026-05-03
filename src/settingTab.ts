@@ -572,12 +572,15 @@ export class WereadSettingsTab extends PluginSettingTab {
 	private subFolderType(): void {
 		new Setting(this.containerEl)
 			.setName('文件夹分类')
-			.setDesc('请选择按照哪个维度对笔记文件进行分类')
+			.setDesc(
+				'请选择按照哪个维度对笔记文件进行分类。"我的书架分组" 使用你在微信读书 App 里自定义的分组名'
+			)
 			.addDropdown((dropdown) => {
 				dropdown.addOptions({
 					'-1': '无分类',
 					title: '书名',
-					category: '图书分类'
+					category: '图书分类（系统）',
+					bookshelf: '我的书架分组'
 				});
 				return dropdown
 					.setValue(get(settingsStore).subFolderType)

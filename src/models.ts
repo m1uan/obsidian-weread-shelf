@@ -346,6 +346,8 @@ export type Metadata = {
 	file?: AnnotationFile;
 	totalWords?: number;
 	rating?: string;
+	bookshelf?: string;
+	bookshelfId?: string;
 	readInfo?: {
 		markedStatus?: number;
 		readingTime: number;
@@ -358,6 +360,18 @@ export type Metadata = {
 		finishedDate: number;
 		readingProgress: number;
 	};
+};
+
+export type ShelfArchive = {
+	archiveId: string;
+	name: string;
+	bookIds: string[];
+};
+
+export type ShelfState = {
+	archives: ShelfArchive[];
+	bookIdToArchive: Map<string, ShelfArchive>;
+	totalBooks: number;
 };
 
 export type SyncFilterResult = {
