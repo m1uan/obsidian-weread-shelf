@@ -485,6 +485,34 @@ export class WereadSettingsTab extends PluginSettingTab {
 					});
 			});
 	}
+	private syncFullShelfToggle(): void {
+		new Setting(this.containerEl)
+			.setName('同步全部书架（含无划线的书）')
+			.setDesc(
+				'开启后会同步整个书架的所有书籍（约 1000+），无划线的书生成元数据 only 的 .md 文件。关闭则只同步有划线/笔记的书（约 162）。首次开启会触发大量 API 请求，耐心等待。'
+			)
+			.addToggle((toggle) => {
+				return toggle.setValue(get(settingsStore).syncFullShelf).onChange((value) => {
+					settingsStore.actions.setSyncFullShelf(value);
+					this.display();
+				});
+			});
+	}
+	private autoRelocateOnBookshelfChangeToggle(): void {
+		new Setting(this.containerEl)
+			.setName('自动整理：分组变更时移动文件')
+			.setDesc(
+				'当你在微信读书 App 里把书移到别的分组（或重命名分组）后，下次同步时插件会自动把对应 .md 文件挪到新分组的文件夹下。关闭则保持文件原位置（仍会更新 frontmatter）。'
+			)
+			.addToggle((toggle) => {
+				return toggle
+					.setValue(get(settingsStore).autoRelocateOnBookshelfChange)
+					.onChange((value) => {
+						settingsStore.actions.setAutoRelocateOnBookshelfChange(value);
+						this.display();
+					});
+			});
+	}
 	private convertTagToggle(): void {
 		new Setting(this.containerEl)
 			.setName('将标签转换为双链？')
@@ -733,6 +761,8 @@ export class WereadSettingsTab extends PluginSettingTab {
 		new Setting(this.containerEl).setName('模板设置').setHeading();
 		this.convertTagToggle();
 		this.saveReadingInfoToggle();
+		this.syncFullShelfToggle();
+		this.autoRelocateOnBookshelfChangeToggle();
 		this.showEmptyChapterTitleToggle();
 
 		// Theme management button - opens theme manager modal

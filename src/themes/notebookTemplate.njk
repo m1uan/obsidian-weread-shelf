@@ -14,16 +14,16 @@ lastReadDate: {{metaData.lastReadDate}}
 > - 出版社： {{metaData.publisher}}
 > - PC地址：{{metaData.pcUrl}}
 
-# 高亮划线
+{% if chapterHighlights and chapterHighlights.length > 0 %}# 高亮划线
 {% for chapter in chapterHighlights %}
 {% if chapter.level == 1 %}## {{chapter.chapterTitle}}{% elif chapter.level == 2 %}### {{chapter.chapterTitle}}{% elif chapter.level == 3 %}#### {{chapter.chapterTitle}}{% endif %}
 {% for highlight in chapter.highlights %}{% if highlight.reviewContent %}
 > 📌 {{ highlight.markText |trim }} ^{{highlight.bookmarkId}}
 - 💭 {{highlight.reviewContent}} - ⏱ {{highlight.createTime}} {% else %}
-> 📌 {{ highlight.markText |trim }} 
+> 📌 {{ highlight.markText |trim }}
 > ⏱ {{highlight.createTime}} ^{{highlight.bookmarkId}}{% endif %}
-{% endfor %}{% endfor %}
-# 读书笔记
+{% endfor %}{% endfor %}{% endif %}
+{% if bookReview.chapterReviews and bookReview.chapterReviews.length > 0 %}# 读书笔记
 {% for chapter in bookReview.chapterReviews %}{% if chapter.reviews or chapter.chapterReview %}
 ## {{chapter.chapterTitle}}
 {% if chapter.chapterReviews %}{% for chapterReview in chapter.chapterReviews %}
@@ -34,10 +34,10 @@ lastReadDate: {{metaData.lastReadDate}}
 > 📌 {{review.abstract |trim }}  ^{{review.reviewId}}
     - 💭 {{review.content}}
     - ⏱ {{review.createTime}}
-{% endfor %} {% endif %} {% endif %} {% endfor %}
-# 本书评论
-{% if bookReview.bookReviews %}{% for bookReview in bookReview.bookReviews %}
-## 书评 No.{{loop.index}} 
+{% endfor %} {% endif %} {% endif %} {% endfor %}{% endif %}
+{% if bookReview.bookReviews and bookReview.bookReviews.length > 0 %}# 本书评论
+{% for bookReview in bookReview.bookReviews %}
+## 书评 No.{{loop.index}}
 {{bookReview.mdContent}} ^{{bookReview.reviewId}}
 ⏱ {{bookReview.createTime}}
 {% endfor %}{% endif %}

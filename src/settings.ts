@@ -76,6 +76,8 @@ export interface WereadPluginSettings {
 	convertTags: boolean;
 	saveArticleToggle: boolean;
 	saveReadingInfoToggle: boolean;
+	syncFullShelf: boolean;
+	autoRelocateOnBookshelfChange: boolean;
 	readingOpenMode: ReadingOpenMode;
 	trimBlocks: boolean;
 	cookieCloudInfo: {
@@ -125,6 +127,8 @@ const DEFAULT_SETTINGS: WereadPluginSettings = {
 	convertTags: false,
 	saveArticleToggle: true,
 	saveReadingInfoToggle: true,
+	syncFullShelf: false,
+	autoRelocateOnBookshelfChange: true,
 	readingOpenMode: 'TAB',
 	trimBlocks: false,
 	cookieCloudInfo: {
@@ -509,6 +513,20 @@ const createSettingsStore = () => {
 		});
 	};
 
+	const setSyncFullShelf = (syncFullShelf: boolean) => {
+		store.update((state) => {
+			state.syncFullShelf = syncFullShelf;
+			return state;
+		});
+	};
+
+	const setAutoRelocateOnBookshelfChange = (autoRelocateOnBookshelfChange: boolean) => {
+		store.update((state) => {
+			state.autoRelocateOnBookshelfChange = autoRelocateOnBookshelfChange;
+			return state;
+		});
+	};
+
 	const setReadingOpenMode = (readingOpenMode: ReadingOpenMode) => {
 		store.update((state) => {
 			state.readingOpenMode = readingOpenMode;
@@ -719,6 +737,8 @@ const createSettingsStore = () => {
 			setConvertTags,
 			setSaveArticleToggle,
 			setSaveReadingInfoToggle,
+			setSyncFullShelf,
+			setAutoRelocateOnBookshelfChange,
 			setReadingOpenMode,
 			setCookieCloudInfo,
 			setTrimBlocks,

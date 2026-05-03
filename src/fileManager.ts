@@ -124,14 +124,25 @@ export default class FileManager {
 	public async saveNotebook(notebook: Notebook): Promise<string | null> {
 		const localFile = notebook.metaData.file;
 		if (localFile) {
+			const existingFile = localFile.file;
+
+			// Auto-relocate when bookshelf grouping changed remotely
+			const autoRelocate = get(settingsStore).autoRelocateOnBookshelfChange;
+			if (autoRelocate) {
+				const desiredPath = await this.getDesiredFilePathForMetadata(
+					notebook.metaData,
+					true
+				);
+				await this.relocateFile(existingFile, desiredPath);
+			}
+
 			if (localFile.new) {
-				const existingFile = localFile.file;
 				console.log(`Updating ${existingFile.path}`);
 				const freshContent = this.renderer.render(notebook);
 				const fileContent = buildFrontMatter(freshContent, notebook, existingFile);
 				await this.vault.modify(existingFile, fileContent);
-				return existingFile.path;
 			}
+			return existingFile.path;
 		} else {
 			const newFilePath = await this.getNewNotebookFilePath(notebook);
 			console.log(`Creating ${newFilePath}`);
@@ -140,7 +151,6 @@ export default class FileManager {
 			const newFile = await this.vault.create(newFilePath, fileContent);
 			return newFile.path;
 		}
-		return null;
 	}
 
 	public getWereadNoteAnnotationFile = (file: TFile): AnnotationFile | null => {
@@ -209,16 +219,46 @@ export default class FileManager {
 	}
 
 	private async getNewNotebookFilePath(notebook: Notebook): Promise<string> {
-		const folderPath = `${get(settingsStore).noteLocation}/${this.getSubFolderPath(
-			notebook.metaData
-		)}`;
-		if (!(await this.vault.adapter.exists(folderPath))) {
+		return this.getDesiredFilePathForMetadata(notebook.metaData, true);
+	}
+
+	/**
+	 * Compute the path a notebook file should live at, given current metadata
+	 * (including refreshed `bookshelf` field) + current settings. Used for both
+	 * new-file creation (`getNewNotebookFilePath`) and the auto-relocation pass.
+	 */
+	public async getDesiredFilePathForMetadata(
+		metaData: Metadata,
+		ensureFolderExists = false
+	): Promise<string> {
+		const folderPath = `${get(settingsStore).noteLocation}/${this.getSubFolderPath(metaData)}`;
+		if (ensureFolderExists && !(await this.vault.adapter.exists(folderPath))) {
 			console.info(`Folder ${folderPath} not found. Will be created`);
 			await this.vault.createFolder(folderPath);
 		}
-		const fileName = this.getFileName(notebook.metaData);
-		const filePath = `${folderPath}/${fileName}.md`;
-		return filePath;
+		const fileName = this.getFileName(metaData);
+		return `${folderPath}/${fileName}.md`;
+	}
+
+	/**
+	 * Move an existing weread-managed file to a new path (typically because
+	 * the user reorganized their bookshelf in WeRead). Creates the target
+	 * folder if needed. Logs and swallows errors — never throws.
+	 */
+	public async relocateFile(file: TFile, desiredPath: string): Promise<boolean> {
+		if (file.path === desiredPath) return false;
+		const targetFolder = desiredPath.substring(0, desiredPath.lastIndexOf('/'));
+		if (targetFolder && !(await this.vault.adapter.exists(targetFolder))) {
+			await this.vault.createFolder(targetFolder);
+		}
+		try {
+			console.log(`[weread plugin] relocating ${file.path} → ${desiredPath}`);
+			await this.vault.rename(file, desiredPath);
+			return true;
+		} catch (e) {
+			console.warn(`[weread plugin] relocate failed (${file.path}):`, e);
+			return false;
+		}
 	}
 
 	private getFileName(metaData: Metadata): string {

@@ -109,6 +109,11 @@ export default class SyncNotebooks {
 			progressNotice.hide();
 		}
 
+		// Relocate any unchanged-content files whose bookshelf grouping
+		// changed remotely. saveNotebook already handles changed-content
+		// files; this pass catches the rest.
+		await this.relocateUnchangedFiles(metaDataArr);
+
 		this.saveToJounal(journalDate, metaDataArr);
 		const syncEndTime = new Date().getTime();
 		const syncTimeInMilliseconds = syncEndTime - syncStartTime;
@@ -142,14 +147,26 @@ export default class SyncNotebooks {
 	}
 
 	private async convertToNotebook(metaData: Metadata): Promise<Notebook> {
-		const bookDetail = await this.apiManager.getBook(metaData.bookId);
-		if (bookDetail) {
-			metaData.category = bookDetail.category;
-			metaData.publisher = bookDetail.publisher;
-			metaData.isbn = bookDetail.isbn;
-			metaData.intro = bookDetail.intro;
-			metaData.totalWords = bookDetail.totalWords;
-			metaData.rating = `${bookDetail.newRating / 10}%`;
+		// Shelf-only books (no highlights, no notes) — fast path: skip the
+		// 3 API calls for highlights/reviews/chapters since they'd all be
+		// empty anyway. Saves ~3 requests per book × ~900 = ~2700 requests
+		// when "sync full shelf" is on.
+		const isShelfOnly = metaData.noteCount === 0 && metaData.reviewCount === 0;
+
+		// getBook may already have been called for shelf-only books in
+		// fetchShelfOnlyMetadata; re-call only if we don't have details yet
+		if (!metaData.intro) {
+			const bookDetail = await this.apiManager.getBook(metaData.bookId);
+			if (bookDetail) {
+				metaData.category = bookDetail.category;
+				metaData.publisher = bookDetail.publisher;
+				metaData.isbn = bookDetail.isbn;
+				metaData.intro = bookDetail.intro;
+				metaData.totalWords = bookDetail.totalWords;
+				metaData.rating = bookDetail.newRating
+					? `${bookDetail.newRating / 10}%`
+					: undefined;
+			}
 		}
 		const progress: BookProgressResponse = await this.apiManager.getProgress(metaData.bookId);
 		if (progress && progress.book) {
@@ -158,6 +175,14 @@ export default class SyncNotebooks {
 				readingTime: progress.book.readingTime,
 				readingBookDate: progress.book.startReadingTime,
 				finishedDate: progress.book.finishTime
+			};
+		}
+
+		if (isShelfOnly) {
+			return {
+				metaData: metaData,
+				chapterHighlights: [],
+				bookReview: { chapterReviews: [], bookReviews: [] }
 			};
 		}
 
@@ -217,7 +242,7 @@ export default class SyncNotebooks {
 		const notebookResp = await this.apiManager.getNotebooksWithRetry();
 		const metaDataArr = notebookResp.map((noteBook) => parseMetadata(noteBook));
 
-		// Enrich each metadata with the user's bookshelf group (archive) info
+		// Enrich each notebook metadata with bookshelf group info
 		const shelfState = await this.getShelfState();
 		if (shelfState) {
 			for (const meta of metaDataArr) {
@@ -233,7 +258,92 @@ export default class SyncNotebooks {
 				}/${metaDataArr.length} notebook books matched`
 			);
 		}
+
+		// Iteration 2: optionally append shelf-only books (no highlights/notes)
+		const syncFullShelf = get(settingsStore).syncFullShelf;
+		if (syncFullShelf && shelfState) {
+			const notebookBookIds = new Set(metaDataArr.map((m) => m.bookId));
+			const shelfOnlyIds: string[] = [];
+			for (const [bookId] of shelfState.bookIdToArchive) {
+				if (!notebookBookIds.has(bookId)) {
+					shelfOnlyIds.push(bookId);
+				}
+			}
+			console.log(
+				`[weread plugin] full shelf: ${shelfOnlyIds.length} books without highlights to fetch`
+			);
+			const shelfOnlyMetas = await this.fetchShelfOnlyMetadata(shelfOnlyIds, shelfState);
+			metaDataArr.push(...shelfOnlyMetas);
+			console.log(`[weread plugin] full shelf: combined ${metaDataArr.length} total books`);
+		}
+
 		return metaDataArr;
+	}
+
+	/**
+	 * Build minimal Metadata for books that are on the shelf but have no
+	 * highlights/notes. Calls /web/book/info to fill in title/author/cover/
+	 * isbn/intro/etc. with bounded concurrency.
+	 */
+	private async fetchShelfOnlyMetadata(
+		bookIds: string[],
+		shelfState: ShelfState
+	): Promise<Metadata[]> {
+		const CONCURRENCY = 4;
+		const results: Metadata[] = [];
+		const total = bookIds.length;
+		const progressNotice = new Notice(
+			`书架元数据抓取中: 0/${total}（仅首次开启「同步全部书架」时较慢）`,
+			0
+		);
+
+		for (let i = 0; i < bookIds.length; i += CONCURRENCY) {
+			const chunk = bookIds.slice(i, i + CONCURRENCY);
+			const chunkResults = await Promise.all(
+				chunk.map(async (bookId) => {
+					try {
+						const detail = await this.apiManager.getBook(bookId);
+						if (!detail || !detail.title) return null;
+						const arch = shelfState.bookIdToArchive.get(bookId);
+						const cover = detail.cover ? detail.cover.replace('/s_', '/t7_') : '';
+						const author = (detail.author || '').replace(/\[(.*?)\]/g, '【$1】');
+						const meta: Metadata = {
+							bookId: detail.bookId,
+							author,
+							title: detail.title,
+							url: '',
+							cover,
+							publishTime: detail.publishTime || '',
+							noteCount: 0,
+							reviewCount: 0,
+							bookType: detail.type || 0,
+							lastReadDate: '',
+							pcUrl: `https://weread.qq.com/web/reader/${detail.bookId}`,
+							isbn: detail.isbn,
+							publisher: detail.publisher,
+							category: detail.category,
+							intro: detail.intro,
+							totalWords: detail.totalWords,
+							rating: detail.newRating ? `${detail.newRating / 10}%` : undefined,
+							bookshelf: arch?.name,
+							bookshelfId: arch?.archiveId
+						};
+						return meta;
+					} catch (e) {
+						console.warn(`[weread plugin] fetch shelf book ${bookId} failed:`, e);
+						return null;
+					}
+				})
+			);
+			for (const m of chunkResults) {
+				if (m) results.push(m);
+			}
+			progressNotice.setMessage(
+				`书架元数据抓取中: ${Math.min(i + CONCURRENCY, total)}/${total}`
+			);
+		}
+		progressNotice.hide();
+		return results;
 	}
 
 	/**
@@ -280,6 +390,34 @@ export default class SyncNotebooks {
 				dailyNoteRefereneces.length
 			);
 			this.fileManager.saveDailyNotes(dailyNotePath, dailyNoteRefereneces);
+		}
+	}
+
+	/**
+	 * After main sync, relocate weread-managed files whose bookshelf changed
+	 * remotely but whose notebook content didn't (so they were skipped in the
+	 * main sync loop). Cheap pass — just compares paths and renames.
+	 */
+	private async relocateUnchangedFiles(metaDataArr: Metadata[]): Promise<void> {
+		if (!get(settingsStore).autoRelocateOnBookshelfChange) return;
+		const localFiles = await this.fileManager.getNotebookFiles();
+		if (localFiles.length === 0) return;
+		const metaByBookId = new Map(metaDataArr.map((m) => [m.bookId, m]));
+
+		let moved = 0;
+		for (const file of localFiles) {
+			if (!file.bookId) continue;
+			const meta = metaByBookId.get(file.bookId);
+			if (!meta) continue; // book no longer on shelf — skip; don't auto-delete
+			const desiredPath = await this.fileManager.getDesiredFilePathForMetadata(meta);
+			if (desiredPath !== file.file.path) {
+				const renamed = await this.fileManager.relocateFile(file.file, desiredPath);
+				if (renamed) moved++;
+			}
+		}
+		if (moved > 0) {
+			new Notice(`已自动整理 ${moved} 个文件到新分组`);
+			console.log(`[weread plugin] auto-relocated ${moved} files`);
 		}
 	}
 
