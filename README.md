@@ -1,36 +1,79 @@
-# Obsidian Weread Plugin
+# Obsidian Weread Shelf
 
-[![](https://github.com/zhaohongxuan/obsidian-weread-plugin/actions/workflows/CI.yml/badge.svg)](https://github.com/zhaohongxuan/obsidian-weread-plugin/actions/workflows/CI.yml)
-[![Release Obsidian plugin](https://github.com/zhaohongxuan/obsidian-weread-plugin/actions/workflows/release.yml/badge.svg)](https://github.com/zhaohongxuan/obsidian-weread-plugin/actions/workflows/release.yml)
-[![GitHub license](https://badgen.net/github/license/Naereen/Strapdown.js)](https://github.com/zhaohongxuan/obsidian-weread-plugin/blob/main/LICENSE)
-[![Github all releases](https://img.shields.io/github/downloads/zhaohongxuan/obsidian-weread-plugin/total.svg)](https://GitHub.com/zhaohongxuan/obsidian-weread-plugin/releases/)
-[![GitLab latest release](https://badgen.net/github/release/zhaohongxuan/obsidian-weread-plugin/)](https://github.com/zhaohongxuan/obsidian-weread-plugin/releases)
+> 🍴 **这是 [zhaohongxuan/obsidian-weread-plugin](https://github.com/zhaohongxuan/obsidian-weread-plugin) 的 fork。**
+> 在原插件基础上，重点增强了「整书架同步」「书架分组归类」「手写笔记（pencilNote）同步」和稳定性。
+> 原插件的所有功能保留可用，下方会先列 fork 新增内容，再附原 README 的主体说明。
 
-Obsidian微信读书插件是一个社区插件，用来同步微信读书中书籍`元信息`、`高亮标注`，`划线感想`、`书评`等，并将这些信息转换为markdown格式保存到Obsidian的文件夹中，初次使用，如果笔记数量较多，更新会比较慢，后面再去更新的时候只会更新`划线数量`或者`笔记数量`有变化的书籍，一般速度很快。
+[![GitHub license](https://badgen.net/github/license/Naereen/Strapdown.js)](https://github.com/m1uan/obsidian-weread-shelf/blob/main/LICENSE)
+[![GitHub release](https://badgen.net/github/release/m1uan/obsidian-weread-shelf/)](https://github.com/m1uan/obsidian-weread-shelf/releases)
 
-## 更新历史
-https://github.com/zhaohongxuan/obsidian-weread-plugin/releases
+Obsidian 微信读书插件，用来同步微信读书的书籍`元信息`、`高亮标注`、`划线感想`、`书评`、`手写笔记`等，并转换为 markdown 保存到 Obsidian。初次同步如果笔记多会较慢，之后增量同步只会更新有变化的书籍。
 
-## 功能
-- 同步书籍元数据例如：书籍封面，作者、出版社、ISBN，出版时间等
+---
+
+## 🆕 Fork 新增功能（v1.6.0 → v1.9.0）
+
+### 📚 整书架同步与分组归类（v1.6.0）
+
+原插件只同步「有划线的书」，本 fork 通过抓取 `/web/shelf` 拉取完整书架：
+
+- **完整书架元数据同步**：连一条划线都没有的书也会同步元数据（封面、作者、ISBN、阅读状态等），方便在 Obsidian 里管理整个微信读书书架
+- **按书架分组归类**：自动按你在微信读书 App 里设定的「书架分组」生成对应的子文件夹，例如「想读 / 在读 / 已读」或自定义分组
+- **分组变更自动移动文件**：在微信读书 App 里把书移到另一个分组后，下次同步时插件会自动把对应的 .md 文件搬到新分组的文件夹里，不会留下重复
+
+### 🖋️ 手写笔记 pencilNote 同步（v1.8.0 / v1.8.1）
+
+微信读书「手写笔记」通常只有图片 URL，原插件不会同步。本 fork 提供两种模式：
+
+- **本地下载模式**（默认）：把手写笔记图片以 PNG 下载到 vault，模板里用 `![[...]]` 引用本地路径
+- **外链模式**：保留远端 URL，配合 [Local Images Plus](https://github.com/aleksey-rezvov/local-images-plus) 等图片本地化插件使用
+- 内置模板自动按 `imageUrl` 去重，避免同一张手写笔记在「划线挂的笔记」和「孤立 review」里重复出现
+
+### 🛡️ 稳定性增强（v1.6.1）
+
+- 给 Obsidian 的 `requestUrl` 加了 20 秒超时（原生没有），解决全量同步偶尔在某本书 `getBook` 卡死、卡在 `796/918` 这类情况
+
+### 📑 阅读状态筛选（v1.7.0）
+
+- 书架视图新增「**未读**」筛选项（原本只有「在读 / 已读」）
+- 修正了 `readingStatus` enum 的值映射
+
+### ⚡ 同步性能优化（v1.9.0）
+
+- 已缓存的书架书跳过 `getBook` 调用，全量同步速度大幅提升
+- 内置笔记模板新增 URL 去重逻辑，pencilNote 不再重复渲染
+
+### 📦 安装
+
+1. 通过 [BRAT](https://github.com/TfTHacker/obsidian42-brat) 安装：在 BRAT 设置里添加仓库 `m1uan/obsidian-weread-shelf`
+2. 或在 [Releases](https://github.com/m1uan/obsidian-weread-shelf/releases) 页面下载 `main.js` / `manifest.json` / `styles.css`，放到 `<vault>/.obsidian/plugins/obsidian-weread-shelf/`，启用即可
+
+---
+
+## 原插件功能（继承自上游）
+
+- 同步书籍元数据：封面、作者、出版社、ISBN、出版时间等
 - 同步微信读书的高亮划线
-- 读书笔记分为`划线笔记`，`页面笔记`， `章节笔记`，`书籍书评`
-- 支持微信扫码登录，理论上可以和浏览器一样保持长时间不掉线。
-- 校验Cookie有效期自动刷新Cookie
-- 自定义笔记生成模板 template
+- 读书笔记分为`划线笔记`、`页面笔记`、`章节笔记`、`书籍书评`
+- 支持微信扫码登录，理论上可以和浏览器一样保持长时间不掉线
+- 校验 Cookie 有效期，自动刷新 Cookie
+- 自定义笔记生成模板（Nunjucks template）
 - 文件名支持多种格式设置
-- 自定义FrontMatter，可在头部yaml文件中增加自己需要的字段，比如标签，阅读状态等
+- 自定义 FrontMatter，可在头部 yaml 中增加自己需要的字段（标签、阅读状态等）
 - 公众号划线和笔记归类同步
-- 支持移动端同步，可以在手机和平板上使用本插件
-- 支持Daily Notes,将当日读书笔记同步至Daily Notes中，已经在[0.4.0](https://github.com/zhaohongxuan/obsidian-weread-plugin/releases/tag/0.4.0)中支持
+- 支持移动端同步（手机和平板）
+- 支持 Daily Notes，将当日读书笔记同步至 Daily Notes
 - 微信读书书架功能，展示本地同步的书籍汇总数据
-- 主题管理：内置三种主题模板，支持导入导出，自定义主题
+- 主题管理：内置三种主题模板，支持导入导出和自定义主题
 
 <img width="1512" height="893" alt="image" src="https://github.com/user-attachments/assets/fe967324-789b-447a-95a2-3cd477720756" />
 
 
 ## 安装方法
-插件市场直接搜索`weread`，找到`Weread Plugin`点击`install`安装，安装完成后点击`Enable`使插件启用，也可以直接在[release](https://github.com/zhaohongxuan/obsidian-weread-plugin/releases)页面手动下载。
+
+> ⚠️ **本 fork 未提交到 Obsidian 插件市场**，请用上面的 BRAT 安装方式或在 [Releases](https://github.com/m1uan/obsidian-weread-shelf/releases) 页面手动下载。
+>
+> 如果你只想要原版功能，可以在 Obsidian 插件市场搜 `weread` 安装上游版本。
 ## 设置
 1. 打开Obsidian点击`设置`进入设置界面，找到`Obsidian Weread Plugin`进入到插件设置页面
 2. 点击右侧`登录`按钮，在弹出的登录页面扫码登录，登录完成后，会显示个人昵称
@@ -137,6 +180,7 @@ https://github.com/zhaohongxuan/obsidian-weread-plugin/releases
 ## 免责声明
 本程序没有爬取任何书籍内容，只提供登录用户的图书以及笔记信息，没有侵犯书籍作者版权和微信读书官方利益。
 ## 感谢
+- 上游：[zhaohongxuan/obsidian-weread-plugin](https://github.com/zhaohongxuan/obsidian-weread-plugin)
 - [wereader](https://github.com/arry-lee/wereader)
 - [Kindle Plugin](https://github.com/hadynz/obsidian-kindle-plugin)
 - [Hypothesis Plugin](https://github.com/weichenw/obsidian-hypothesis-plugin)
